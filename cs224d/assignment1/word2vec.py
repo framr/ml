@@ -63,45 +63,61 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, K=10, data
 
     grad_pred = numpy.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * predicted
 
-    # memory inefficient
     grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * pred[np.newaxis, :]
     grad_out = - (1 - sigmoid(output_vectors[target], pred)) * pred
+
+    # memory inefficient, lots of zeros
     grad = numpy.zeros(output_vectors.shape)
     grad[indices] = grad_out_noise
     grad[target] = grad_out
 
     return cost, grad_pred, grad
 
-def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, word2vecCostAndGradient = softmaxCostAndGradient):
-    """ Skip-gram model in word2vec """
-    ###################################################################
-    # Implement the skip-gram model in this function.                 #         
-    # Inputs:                                                         #
-    #   - currrentWord: a string of the current center word           #
-    #   - C: integer, context size                                    #
-    #   - contextWords: list of no more than 2*C strings, the context #
-    #             words                                               #
-    #   - tokens: a dictionary that maps words to their indices in    #
-    #             the word vector list                                #
-    #   - inputVectors: "input" word vectors for all tokens           #
-    #   - outputVectors: "output" word vectors for all tokens         #
-    #   - word2vecCostAndGradient: the cost and gradient function for #
-    #             a prediction vector given the target word vectors,  #
-    #             could be one of the two cost functions you          #
-    #             implemented above                                   #
-    # Outputs:                                                        #
-    #   - cost: the cost function value for the skip-gram model       #
-    #   - grad: the gradient with respect to the word vectors         #
-    # We will not provide starter code for this function, but feel    #
-    # free to reference the code you previously wrote for this        #
-    # assignment!                                                     #
-    ###################################################################
-    
-    ### YOUR CODE HERE
-    
-    ### END YOUR CODE
-    
-    return cost, gradIn, gradOut
+def skipgram(current_word, context_size, context_words, tokens, input_vectors, output_vectors, 
+        cost_grad_func=softmax_cost_and_gradient):
+    """ 
+    Inputs:                                                         
+        - current_word: a string of the current center word           
+        - context_size: integer, context size                                    
+        - context_words: list of no more than 2*context_size strings, the context 
+                 words                                               
+        - tokens: a dictionary that maps words to their indices in    
+                 the word vector list 
+        - input_vectors: "input" word vectors for all tokens           
+        - output_vectors: "output" word vectors for all tokens         
+        - cost_grad_func: the cost and gradient function for 
+                 a prediction vector given the target word vectors,  
+                 could be one of the two cost functions you          
+                 implemented above                                   
+    Outputs:                                                        
+        - cost: the cost function value for the skip-gram model
+        - grad: the gradient with respect to the word vectors
+    """
+
+    #XXX: what for input context_size here??? it should be already inside context_words
+
+    current_vec = input_vectors[tokens[current_word]]
+    for word in context_words:
+        cost, grad_pred, grad = cost_grad_func(current_vec, tokens[word], output_vectors)
+
+
+
+
+    return cost, grad_in, grad_out
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors, word2vecCostAndGradient = softmaxCostAndGradient):
     """ CBOW model in word2vec """
