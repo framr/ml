@@ -2,10 +2,16 @@
 
 import sys
 import os
-
+import glob
+import cPickle as pickle
 
 import random
 import numpy as np
+
+
+# Save parameters every a few SGD iterations as fail-safe
+SAVE_PARAMS_EVERY = 1000
+
 
 # Interface to the dataset for negative sampling
 dataset = type('dummy', (), {})()
@@ -154,84 +160,49 @@ def cbow(current_word, context_size, context_words, tokens, input_vectors, outpu
     grad_in[indices] = grad_pred
     return cost, grad_in, grad_out
 
-# In[ ]:
 
 # Implement a function that normalizes each row of a matrix to have unit length
-def normalizeRows(x):
-    """ Row normalization function """
-    
-    ### YOUR CODE HERE
-    
-    ### END YOUR CODE
-    
-    return x
-
-# Test this function
-print "=== For autograder ==="
-print normalizeRows(np.array([[3.0,4.0],[1, 2]]))  # the result should be [[0.6, 0.8], [0.4472, 0.8944]]
+def normalize_rows(x):
+    """ Row normalization function """   
+    return x / (x * x).sum(1)[:, np.newaxis] 
 
 
-# In[ ]:
+def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_grad_func=softmax_cost_and_gradient):
 
-# Gradient check!
+    #XXX batch provides no vectorization currently
 
-def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, word2vecCostAndGradient = softmaxCostAndGradient):
-    batchsize = 50
-    cost = 0.0
-    grad = np.zeros(wordVectors.shape)
-    N = wordVectors.shape[0]
-    inputVectors = wordVectors[:N/2,:]
-    outputVectors = wordVectors[N/2:,:]
+    context_size = parameters.context_size
+    batchsize = parameters.sgd.batch_size
+
+    total_cost = 0.0
+    grad = np.zeros(word_vectors.shape)
+    N = word_vectors.shape[0]
+    input_vectors = word_vectors[:N/2,:]
+    output_vectors = word_vectors[N/2:,:]
     for i in xrange(batchsize):
-        C1 = random.randint(1,C)
-        centerword, context = dataset.getRandomContext(C1)
+        C1 = random.randint(1, context_size)
+        centerword, context = dataset.get_context(context_size, parameters.dataset)
         
-        if word2vecModel == skipgram:
+        #WTF??
+        if model == skipgram:
             denom = 1
         else:
             denom = 1
         
-        c, gin, gout = word2vecModel(centerword, C1, context, tokens, inputVectors, outputVectors, word2vecCostAndGradient)
-        cost += c / batchsize / denom
-        grad[:N/2, :] += gin / batchsize / denom
-        grad[N/2:, :] += gout / batchsize / denom
+        cost, grad_in, grad_out = model(centerword, context_size, context, tokens, input_vectors, output_vectors, cost_grad_func)
+        total_cost += cost / batchsize / denom
+        grad[:N/2, :] += grad_in / batchsize / denom
+        grad[N/2:, :] += grad_out / batchsize / denom
         
     return cost, grad
 
-random.seed(31415)
-np.random.seed(9265)
-dummy_vectors = normalizeRows(np.random.randn(10,3))
-dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
-print "==== Gradient check for skip-gram ===="
-gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5), dummy_vectors)
-gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient), dummy_vectors)
-print "\n==== Gradient check for CBOW      ===="
-gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5), dummy_vectors)
-gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient), dummy_vectors)
 
-print "\n=== For autograder ==="
-print skipgram("c", 3, ["a", "b", "e", "d", "b", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
-print skipgram("c", 1, ["a", "b"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], negSamplingCostAndGradient)
-print cbow("a", 2, ["a", "b", "c", "a"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
-print cbow("a", 2, ["a", "b", "a", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], negSamplingCostAndGradient)
-
-
-# In[ ]:
-
-# Now, implement SGD
-
-# Save parameters every a few SGD iterations as fail-safe
-SAVE_PARAMS_EVERY = 1000
-
-import glob
-import os.path as op
-import cPickle as pickle
 
 def load_saved_params():
     """ A helper function that loads previously saved parameters and resets iteration start """
     st = 0
     for f in glob.glob("saved_params_*.npy"):
-        iter = int(op.splitext(op.basename(f))[0].split("_")[2])
+        iter = int(os.path.splitext(os.path.basename(f))[0].split("_")[2])
         if (iter > st):
             st = iter
             
@@ -248,30 +219,28 @@ def save_params(iter, params):
         pickle.dump(params, f)
         pickle.dump(random.getstate(), f)
 
-def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False, PRINT_EVERY=10):
-    """ Stochastic Gradient Descent """
-    ###################################################################
-    # Implement the stochastic gradient descent method in this        #
-    # function.                                                       #
-    # Inputs:                                                         #
-    #   - f: the function to optimize, it should take a single        #
-    #        argument and yield two outputs, a cost and the gradient  #
-    #        with respect to the arguments                            #
-    #   - x0: the initial point to start SGD from                     #
-    #   - step: the step size for SGD                                 #
-    #   - iterations: total iterations to run SGD for                 #
-    #   - postprocessing: postprocessing function for the parameters  #
-    #        if necessary. In the case of word2vec we will need to    #
-    #        normalize the word vectors to have unit length.          #
-    #   - PRINT_EVERY: specifies every how many iterations to output  #
-    # Output:                                                         #
-    #   - x: the parameter value after SGD finishes                   #
-    ###################################################################
-    
+def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, PRINT_EVERY=10):
+    """ 
+    Stochastic Gradient Descent                                               
+    Inputs:                                                         
+        - f: the function to optimize, it should take a single        
+            argument and yield two outputs, a cost and the gradient  
+            with respect to the arguments                            
+        - x0: the initial point to start SGD from                     
+        - step: the step size for SGD                               
+        - iterations: total iterations to run SGD for                 
+        - postprocessing: postprocessing function for the parameters  
+            if necessary. In the case of word2vec we will need to    
+            normalize the word vectors to have unit length.          
+        - PRINT_EVERY: specifies every how many iterations to output  
+    Output:                                                         
+        - x: the parameter value after SGD finishes                   
+    """
+
     # Anneal learning rate every several iterations
     ANNEAL_EVERY = 20000
     
-    if useSaved:
+    if use_saved:
         start_iter, oldx, state = load_saved_params()
         if start_iter > 0:
             x0 = oldx;
@@ -290,84 +259,18 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False, PRINT_
     expcost = None
     
     for iter in xrange(start_iter + 1, iterations + 1):
-        ### YOUR CODE HERE
-        ### Don't forget to apply the postprocessing after every iteration!
-        ### You might want to print the progress every few iterations.
         
-        ### END YOUR CODE
+        cost, grad = f(x)
+        x -= step * grad
+        posprocessing(x)
         
-        if iter % SAVE_PARAMS_EVERY == 0 and useSaved:
+        if iter % SAVE_PARAMS_EVERY == 0 and use_saved:
             save_params(iter, x)
             
         if iter % ANNEAL_EVERY == 0:
             step *= 0.5
     
     return x
-
-
-# **Show time! Now we are going to load some real data and train word vectors with everything you just implemented!**
-# 
-# We are going to use the Stanford Sentiment Treebank (SST) dataset to train word vectors, and later apply them to a simple sentiment analysis task.
-
-# In[ ]:
-
-# Load some data and initialize word vectors
-
-# Reset the random seed to make sure that everyone gets the same results
-random.seed(314)
-dataset = StanfordSentiment()
-tokens = dataset.tokens()
-nWords = len(tokens)
-
-# We are going to train 10-dimensional vectors for this assignment
-dimVectors = 10
-
-# Context size
-C = 5
-
-
-# In[ ]:
-
-# Train word vectors (this could take a while!)
-
-# Reset the random seed to make sure that everyone gets the same results
-random.seed(31415)
-np.random.seed(9265)
-wordVectors = np.concatenate(((np.random.rand(nWords, dimVectors) - .5) / dimVectors, 
-                              np.zeros((nWords, dimVectors))), axis=0)
-wordVectors0 = sgd(lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, negSamplingCostAndGradient), 
-                   wordVectors, 0.3, 40000, None, True, PRINT_EVERY=10)
-# sanity check: cost at convergence should be around or below 10
-
-# sum the input and output word vectors
-wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:])
-
-print "\n=== For autograder ==="
-checkWords = ["the", "a", "an", "movie", "ordinary", "but", "and"]
-checkIdx = [tokens[word] for word in checkWords]
-checkVecs = wordVectors[checkIdx, :]
-print checkVecs
-
-
-# In[ ]:
-
-# Visualize the word vectors you trained
-
-_, wordVectors0, _ = load_saved_params()
-wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:])
-visualizeWords = ["the", "a", "an", ",", ".", "?", "!", "``", "''", "--", "good", "great", "cool", "brilliant", "wonderful", "well", "amazing", "worth", "sweet", "enjoyable", "boring", "bad", "waste", "dumb", "annoying"]
-visualizeIdx = [tokens[word] for word in visualizeWords]
-visualizeVecs = wordVectors[visualizeIdx, :]
-temp = (visualizeVecs - np.mean(visualizeVecs, axis=0))
-covariance = 1.0 / len(visualizeIdx) * temp.T.dot(temp)
-U,S,V = np.linalg.svd(covariance)
-coord = temp.dot(U[:,0:2]) 
-
-for i in xrange(len(visualizeWords)):
-    plt.text(coord[i,0], coord[i,1], visualizeWords[i], bbox=dict(facecolor='green', alpha=0.1))
-    
-plt.xlim((np.min(coord[:,0]), np.max(coord[:,0])))
-plt.ylim((np.min(coord[:,1]), np.max(coord[:,1])))
 
 
 
