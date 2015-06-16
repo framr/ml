@@ -19,12 +19,12 @@ dataset.getRandomContext = getRandomContext
 
 
 
-def softmax_cost_and_gradient(predicted, target, output_vectors):
+def softmax_cost_and_gradient(predicted, target, output_vectors, dataset=None):
     """ 
     Softmax cost function for word2vec models 
     Input:
         - predicted: numpy ndarray, vector representation for input word
-        assuming 1 x D dim vector
+        assuming 1 x D dim dummy_vectors
         - target: index of the target word
         - output_vectors: word representations for all output vectors
         assuming V x D matrix, where V - vocabulary size, D - vector space dim
@@ -44,7 +44,7 @@ def softmax_cost_and_gradient(predicted, target, output_vectors):
 
     return cost, grad_pred, grad
 
-def neg_sampling_cost_and_gradient(predicted, target, output_vectors, K=10, dataset=None):
+def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=None, parameters=None):
     """ 
     Negative sampling cost function for word2vec models 
     Input:
@@ -52,11 +52,17 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, K=10, data
     Output:
         output_vectors: size V x D array
     """
+    parameters = parameters if parameters else {}
+    noise_sample_size = parameters.get('noise_sample_size', 10)
+
     score = numpy.dot(predicted, output_vectors[target])
+
+    # sample noise objects
     if dataset is None:
-        indices = np.random.choice(output_vectors.shape[0], size=K)
+        indices = np.random.choice(output_vectors.shape[0], size=noise_sample_size)
     else:
-        indices = np.asarray([dataset.sample_token_idx() for _ in xrange(K)])
+        indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
+ 
     w = output_vectors[indices]
     score_noise = numpy.dot(w, predicted).T # 1 x K vector
     cost = -np.log(sigmoid(score)) - np.log(sigmoid(-score_noise)).sum()
@@ -74,8 +80,9 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, K=10, data
     return cost, grad_pred, grad
 
 def skipgram(current_word, context_size, context_words, tokens, input_vectors, output_vectors, 
-        cost_grad_func=softmax_cost_and_gradient):
-    """ 
+        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None):
+    """
+    Calculate skipgram cost and gradients for one context window
     Inputs:                                                         
         - current_word: a string of the current center word           
         - context_size: integer, context size                                    
@@ -83,8 +90,8 @@ def skipgram(current_word, context_size, context_words, tokens, input_vectors, o
                  words                                               
         - tokens: a dictionary that maps words to their indices in    
                  the word vector list 
-        - input_vectors: "input" word vectors for all tokens           
-        - output_vectors: "output" word vectors for all tokens         
+        - input_vectors: "input" word vectors for all tokens V x D    
+        - output_vectors: "output" word vectors for all tokens V x D     
         - cost_grad_func: the cost and gradient function for 
                  a prediction vector given the target word vectors,  
                  could be one of the two cost functions you          
@@ -97,44 +104,55 @@ def skipgram(current_word, context_size, context_words, tokens, input_vectors, o
     #XXX: what for input context_size here??? it should be already inside context_words
 
     current_vec = input_vectors[tokens[current_word]]
+    total_cost = 0
+    grad_in = np.zeros_like(input_vectors)
+    grad_out = np.zeros_like(output_vectors)
     for word in context_words:
-        cost, grad_pred, grad = cost_grad_func(current_vec, tokens[word], output_vectors)
+        cost, grad_pred, grad = cost_grad_func(current_vec, tokens[word], output_vectors, 
+                dataset=dataset, parameters=parameters)
+        grad_in[tokens[current_word]] += grad_pred
+        grad_out += grad
+        total_cost += cost
+
+    return total_cost, grad_in, grad_out
 
 
+def cbow(current_word, context_size, context_words, tokens, input_vectors, output_vectors, 
+        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None):
+    """
+    Calculate cbow cost and gradients for one context window
+    Inputs:                                                         
+        - current_word: a string of the current center word           
+        - context_size: integer, context size                                    
+        - context_words: list of no more than 2*context_size strings, the context 
+                 words                                               
+        - tokens: a dictionary that maps words to their indices in    
+                 the word vector list 
+        - input_vectors: "input" word vectors for all tokens V x D    
+        - output_vectors: "output" word vectors for all tokens V x D     
+        - cost_grad_func: the cost and gradient function for 
+                 a prediction vector given the target word vectors,  
+                 could be one of the two cost functions you          
+                 implemented above                                   
+    Outputs:                                                        
+        - cost: the cost function value for the skip-gram model
+        - grad: the gradient with respect to the word vectors
+    """
 
+    #XXX: what for input context_size here???
 
+    # Here we are calculatinng input vector as average over all input context words
+    indices = [tokens[w] for w in context_words]
+    current_vec = input_vectors[indices].sum(0)
+    current_vec /= len(context_words)
+
+    cost = 0
+    grad_in = np.zeros_like(input_vectors)
+    cost, grad_pred, grad_out = cost_grad_func(current_vec, tokens[current_word], output_vectors, 
+                dataset=dataset, parameters=parameters)
+
+    grad_in[indices] = grad_pred
     return cost, grad_in, grad_out
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors, word2vecCostAndGradient = softmaxCostAndGradient):
-    """ CBOW model in word2vec """
-    ###################################################################
-    # Implement the continuous bag-of-words model in this function.   #         
-    # Input/Output specifications: same as the skip-gram model        #
-    # We will not provide starter code for this function, but feel    #
-    # free to reference the code you previously wrote for this        #
-    # assignment!                                                     #
-    ###################################################################
-    
-    ### YOUR CODE HERE
-    
-    ### END YOUR CODE
-    
-    return cost, gradIn, gradOut
-
 
 # In[ ]:
 
