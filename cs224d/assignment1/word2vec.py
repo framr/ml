@@ -13,18 +13,6 @@ import numpy as np
 SAVE_PARAMS_EVERY = 1000
 
 
-# Interface to the dataset for negative sampling
-dataset = type('dummy', (), {})()
-def dummySampleTokenIdx():
-    return random.randint(0, 4)
-def getRandomContext(C):
-    tokens = ["a", "b", "c", "d", "e"]
-    return tokens[random.randint(0,4)], [tokens[random.randint(0,4)] for i in xrange(2*C)]
-dataset.sampleTokenIdx = dummySampleTokenIdx
-dataset.getRandomContext = getRandomContext
-
-
-
 def softmax_cost_and_gradient(predicted, target, output_vectors, dataset=None):
     """ 
     Softmax cost function for word2vec models 
@@ -219,7 +207,7 @@ def save_params(iter, params):
         pickle.dump(params, f)
         pickle.dump(random.getstate(), f)
 
-def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, PRINT_EVERY=10):
+def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, tolerance=1e-5, print_every=10):
     """ 
     Stochastic Gradient Descent                                               
     Inputs:                                                         
@@ -239,12 +227,13 @@ def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, PRINT_EVE
 
     # Anneal learning rate every several iterations
     ANNEAL_EVERY = 20000
-    
+    ANNEAL_FACTOR = 0.5
+
     if use_saved:
         start_iter, oldx, state = load_saved_params()
         if start_iter > 0:
             x0 = oldx;
-            step *= 0.5 ** (start_iter / ANNEAL_EVERY)
+            step *= ANNEAL_FACTOR ** (start_iter / ANNEAL_EVERY)
             
         if state:
             random.setstate(state)
@@ -257,7 +246,7 @@ def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, PRINT_EVE
         postprocessing = lambda x: x
     
     expcost = None
-    
+    old_cost = None
     for iter in xrange(start_iter + 1, iterations + 1):
         
         cost, grad = f(x)
@@ -268,8 +257,15 @@ def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, PRINT_EVE
             save_params(iter, x)
             
         if iter % ANNEAL_EVERY == 0:
-            step *= 0.5
+            step *= ANNEAL_FACTOR
     
+        if iter % print_every == 0:
+            print "%d  %e" % (iter, cost)
+        if old_cost is not None and abs((cost - old_cost) / old_cost) < tolerance:
+            print "Relative cost change %e below tolerance threshold, exiting" % (cost - old_cost) / old_cost
+
+        old_cost = cost
+
     return x
 
 
