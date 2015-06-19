@@ -13,7 +13,67 @@ import numpy as np
 SAVE_PARAMS_EVERY = 1000
 
 
-def softmax_cost_and_gradient(predicted, target, output_vectors, dataset=None):
+def gradcheck_naive(f, x, step=1e-4, tolerance=1e-5, verbose=False):
+    """ 
+    Gradient check for a function f 
+    - f should be a function that takes a single argument and outputs the cost and its gradients
+    - x is the point (numpy array) to check the gradient at
+    """ 
+
+    rndstate = random.getstate()
+    random.setstate(rndstate)  
+    fx, grad = f(x) # Evaluate function value at original point
+    h = step
+
+    # Iterate over all indexes in x
+    it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
+    while not it.finished:
+        ix = it.multi_index
+        if verbose:
+            print "Gradient check at dimension %s" % str(ix)
+        x[ix] += 0.5 * h
+        random.setstate(rndstate)
+        f2, _ = f(x)
+        x[ix] -= h
+        random.setstate(rndstate)
+        f1, _ = f(x)
+        numgrad = (f2 - f1) / h
+        x[ix] += 0.5 * h
+
+        # Compare gradients
+        reldiff = abs(numgrad - grad[ix]) / max(1, abs(numgrad), abs(grad[ix]))
+
+        if reldiff > tolerance:
+            print "Gradient check failed."
+            print "First gradient error found at index %s" % str(ix)
+            print "Your gradient: %f \t Numerical gradient: %f" % (grad[ix], numgrad)
+            raise ValueError
+
+        it.iternext() # Step to next dimension
+
+
+
+def softmax(x):
+    y = x
+    if len(x.shape) == 1:
+        y = x[np.newaxis, :]
+    
+    renormed = np.exp(y - y.max(1)[:, np.newaxis])
+    result = renormed / renormed.sum(1)[:, np.newaxis]   
+    return result
+
+def sigmoid(x):
+    result = 1 / (1 + np.exp(-x))
+    return result
+
+def sigmoid_grad(f):
+    """ Sigmoid gradient function """
+    res = f * (1 - f)   
+    return res
+
+
+
+def softmax_cost_and_gradient(predicted, target, output_vectors, dataset=None, parameters=None):
     """ 
     Softmax cost function for word2vec models 
     Input:
@@ -49,7 +109,7 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     parameters = parameters if parameters else {}
     noise_sample_size = parameters.get('noise_sample_size', 10)
 
-    score = numpy.dot(predicted, output_vectors[target])
+    score = np.dot(predicted, output_vectors[target])
 
     # sample noise objects
     if dataset is None:
@@ -58,16 +118,16 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
         indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
  
     w = output_vectors[indices]
-    score_noise = numpy.dot(w, predicted).T # 1 x K vector
+    score_noise = np.dot(w, predicted).T # 1 x K vector
     cost = -np.log(sigmoid(score)) - np.log(sigmoid(-score_noise)).sum()
 
-    grad_pred = numpy.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * predicted
+    grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * predicted
 
-    grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * pred[np.newaxis, :]
-    grad_out = - (1 - sigmoid(output_vectors[target], pred)) * pred
+    grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * predicted[np.newaxis, :]
+    grad_out = - (1 - sigmoid(np.dot(output_vectors[target], predicted))) * predicted
 
     # memory inefficient, lots of zeros
-    grad = numpy.zeros(output_vectors.shape)
+    grad = np.zeros(output_vectors.shape)
     grad[indices] = grad_out_noise
     grad[target] = grad_out
 
@@ -143,7 +203,7 @@ def cbow(current_word, context_size, context_words, tokens, input_vectors, outpu
     cost = 0
     grad_in = np.zeros_like(input_vectors)
     cost, grad_pred, grad_out = cost_grad_func(current_vec, tokens[current_word], output_vectors, 
-                dataset=dataset, parameters=parameters)
+        dataset=dataset, parameters=parameters)
 
     grad_in[indices] = grad_pred
     return cost, grad_in, grad_out
@@ -155,7 +215,7 @@ def normalize_rows(x):
     return x / (x * x).sum(1)[:, np.newaxis] 
 
 
-def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_grad_func=softmax_cost_and_gradient):
+def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_grad_func=softmax_cost_and_gradient, verbose=False):
 
     #XXX batch provides no vectorization currently
 
@@ -167,22 +227,31 @@ def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_
     N = word_vectors.shape[0]
     input_vectors = word_vectors[:N/2,:]
     output_vectors = word_vectors[N/2:,:]
+
+    if verbose:
+        print 'Wrapper'
     for i in xrange(batchsize):
         C1 = random.randint(1, context_size)
-        centerword, context = dataset.get_context(context_size, parameters.dataset)
+        centerword, context = dataset.get_context(C1, parameters.dataset)
         
         #WTF??
         if model == skipgram:
             denom = 1
         else:
             denom = 1
-        
-        cost, grad_in, grad_out = model(centerword, context_size, context, tokens, input_vectors, output_vectors, cost_grad_func)
+       
+        if verbose:
+            print "Batch element %d" % i
+            print "Evaluating model at center word %s, inside context %s" % (centerword, ' '.join(context))
+        cost, grad_in, grad_out = model(centerword, context_size, context, tokens, input_vectors, output_vectors,
+            cost_grad_func, dataset=dataset, parameters=parameters)
         total_cost += cost / batchsize / denom
         grad[:N/2, :] += grad_in / batchsize / denom
         grad[N/2:, :] += grad_out / batchsize / denom
-        
-    return cost, grad
+        if verbose:
+            print "Total cost = %s, current cost = %s" % (total_cost, cost)
+            print "Updated gradient\n", grad 
+    return total_cost, grad
 
 
 

@@ -5,10 +5,19 @@ import numpy as np
 import random
 
 from cs224d.data_utils import StanfordSentiment
-from wordvec import back_prop1, back_prop2, gradcheck_naive
-from word2vec import normalize_rows, word2vec_sgd_wrapper, sgd, cbow, skipgram, normalize_rows
+from wordvec import back_prop1, back_prop2
+from word2vec import normalize_rows, word2vec_sgd_wrapper, sgd, cbow, skipgram, normalize_rows, neg_sampling_cost_and_gradient, softmax_cost_and_gradient, gradcheck_naive
 
 from attrdict import AttrDict
+
+class DatasetWrapper(object):
+    def __init__(self, dataset, parameters=None):
+        self._dataset = dataset
+        self._parameters = parameters
+        self.get_context = self.get_random_context
+        self.sample_token_idx = self._dataset.sampleTokenIdx
+    def get_random_context(self):
+        return self._dataset.getRandomContext()
 
 
 if __name__ == '__main__':
@@ -36,8 +45,8 @@ if __name__ == '__main__':
     print "=== Neural network gradient check 1==="
     check_res = gradcheck_naive(lambda params: back_prop1(data, labels, params, dimensions), params)
 
-    print "=== Neural network gradient check 1===" 
-    check_res = gradcheck_naive(lambda params: back_prop2(data, labels, params, dimensions), params)
+    print "=== Neural network gradient check 2===" 
+    #check_res = gradcheck_naive(lambda params: back_prop2(data, labels, params, dimensions), params)
 
     print "=== normalize rows ==="
     print normalize_rows(np.array([[3.0, 4.0],[1, 2]]))  # the result should be [[0.6, 0.8], [0.4472, 0.8944]]
@@ -47,30 +56,50 @@ if __name__ == '__main__':
     dataset = type('dummy', (), {})()
     def dummySampleTokenIdx():
         return random.randint(0, 4)
-    def getRandomContext(C):
+    def getRandomContext(C, parameters=None):
         tokens = ["a", "b", "c", "d", "e"]
         return tokens[random.randint(0,4)], [tokens[random.randint(0,4)] for i in xrange(2*C)]
-    dataset.sampleTokenIdx = dummySampleTokenIdx
-    dataset.getRandomContext = getRandomContext
+    dataset.sample_token_idx =  dummySampleTokenIdx
+    dataset.get_context = getRandomContext
 
-
+    parameters = AttrDict(
+            {
+            'context_size' : 3,
+            'sgd' : {'batch_size': 2},
+            'dataset' : {}
+            }
+    )
 
     random.seed(31415)
     np.random.seed(9265)
     dummy_vectors = normalize_rows(np.random.randn(10,3))
     dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
+
     print "==== Gradient check for skip-gram ===="
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5), dummy_vectors)
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5, neg_sampling_cost_and_gradient), dummy_vectors)
+    print "test 1"
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, parameters=parameters, verbose=True),
+        dummy_vectors, verbose=True)
+    print "test 2"
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, parameters=parameters,
+        cost_grad_func=neg_sampling_cost_and_gradient), dummy_vectors)
+
     print "\n==== Gradient check for CBOW      ===="
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5), dummy_vectors)
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5, neg_sampling_cost_and_gradient), dummy_vectors)
+    print "test 1"
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, parameters=parameters),
+        dummy_vectors)
+    print "test 2"
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, parameters=parameters, 
+        cost_grad_func=neg_sampling_cost_and_gradient), dummy_vectors)
 
     print "\n=== For autograder ==="
-    print skipgram("c", 3, ["a", "b", "e", "d", "b", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
-    print skipgram("c", 1, ["a", "b"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], neg_sampling_cost_and_gradient)
-    print cbow("a", 2, ["a", "b", "c", "a"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
-    print cbow("a", 2, ["a", "b", "a", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], neg_sampling_cost_and_gradient)
+    print skipgram("c", 3, ["a", "b", "e", "d", "b", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:],
+        parameters=parameters)
+    print skipgram("c", 1, ["a", "b"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], 
+        parameters=parameters, cost_grad_func=neg_sampling_cost_and_gradient)
+    print cbow("a", 2, ["a", "b", "c", "a"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:],
+        parameters=parameters)
+    print cbow("a", 2, ["a", "b", "a", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:],
+        parameters=parameters, cost_grad_func=neg_sampling_cost_and_gradient)
 
 
 
@@ -102,7 +131,7 @@ if __name__ == '__main__':
     np.random.seed(9265)
     word_vectors = np.concatenate((
         (np.random.rand(num_words, dim_vectors) - 0.5) / dim_vectors, 
-        np.zeros((num_words, dimVectors))), 
+        np.zeros((num_words, dim_vectors))), 
         axis=0
     )
     word_vectors0 = sgd(

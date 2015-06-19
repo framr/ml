@@ -141,8 +141,8 @@ def back_prop2(X, Y, params, dim):
     gradb2 = 0
     for x_vec, y_vec in np.nditer([X, Y], flags=['external_loop'], op_axes=[[1], [1]]):
 
-        print x_vec.shape
-        print y_vec.shape
+        #print x_vec.shape
+        #print y_vec.shape
         h = sigmoid(np.dot(x_vec, W1) + b1)
         z = np.dot(h, W2) + b2
         s = softmax(z)
