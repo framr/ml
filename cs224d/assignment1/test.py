@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import os
 import sys
 import numpy as np
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     data = np.random.randn(N, dimensions[0])   # each row will be a datum
     labels = np.zeros((N, dimensions[2]))
     for i in xrange(N):
-        labels[i,random.randint(0,dimensions[2]-1)] = 1
+        labels[i,random.randint(0, dimensions[2]-1)] = 1
 
     params = np.random.randn((dimensions[0] + 1) * dimensions[1] + (dimensions[1] + 1) * dimensions[2], )
     print "Dimensionality of parameter vector", params.shape
@@ -74,6 +74,27 @@ if __name__ == '__main__':
     np.random.seed(9265)
     dummy_vectors = normalize_rows(np.random.randn(10,3))
     dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
+
+  
+    print "==== Gradient check for soft_max_cost_and_gradient ===="
+    def g_func_wrapper1(f, *params, **kws):
+        cost, grad_pred, grad = f(*params, **kws)
+        return cost, grad_pred
+    def g_func_wrapper2(f, *params, **kws):
+        cost, grad_pred, grad = f(*params, **kws)
+        return cost, grad
+
+    gradcheck_naive(lambda vec: g_func_wrapper1(softmax_cost_and_gradient, vec, 0, dummy_vectors[1:], dataset, parameters=parameters), 
+        dummy_vectors[0])
+    gradcheck_naive(lambda vec: g_func_wrapper2(softmax_cost_and_gradient, dummy_vectors[0], 0, vec, dataset, parameters=parameters), 
+        dummy_vectors[1:])
+
+    print "==== Gradient check for neg_sampling_max_cost_and_gradient ===="
+    gradcheck_naive(lambda vec: g_func_wrapper1(neg_sampling_cost_and_gradient, vec, 0, dummy_vectors[1:], dataset, parameters=parameters), 
+        dummy_vectors[0], verbose=True)
+    gradcheck_naive(lambda vec: g_func_wrapper2(neg_sampling_cost_and_gradient, dummy_vectors[0], 0, vec, dataset, parameters=parameters), 
+        dummy_vectors[1:])
+
 
     print "==== Gradient check for skip-gram ===="
     print "test 1"

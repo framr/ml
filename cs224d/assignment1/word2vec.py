@@ -31,6 +31,7 @@ def gradcheck_naive(f, x, step=1e-4, tolerance=1e-5, verbose=False):
         ix = it.multi_index
         if verbose:
             print "Gradient check at dimension %s" % str(ix)
+        
         x[ix] += 0.5 * h
         random.setstate(rndstate)
         f2, _ = f(x)
@@ -117,8 +118,11 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     else:
         indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
  
-    w = output_vectors[indices]
+    w = output_vectors[indices] # K x D vector
     score_noise = np.dot(w, predicted).T # 1 x K vector
+    print "score: %s" % score
+    print "noise score: %s " % score_noise
+
     cost = -np.log(sigmoid(score)) - np.log(sigmoid(-score_noise)).sum()
 
     grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * predicted
