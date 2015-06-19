@@ -90,16 +90,18 @@ if __name__ == '__main__':
         dummy_vectors[1:])
 
     print "==== Gradient check for neg_sampling_max_cost_and_gradient ===="
+    print "test 1"
     gradcheck_naive(lambda vec: g_func_wrapper1(neg_sampling_cost_and_gradient, vec, 0, dummy_vectors[1:], dataset, parameters=parameters), 
-        dummy_vectors[0], verbose=True)
+        dummy_vectors[0], verbose=False)
+    print "test 2"
     gradcheck_naive(lambda vec: g_func_wrapper2(neg_sampling_cost_and_gradient, dummy_vectors[0], 0, vec, dataset, parameters=parameters), 
         dummy_vectors[1:])
 
 
     print "==== Gradient check for skip-gram ===="
     print "test 1"
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, parameters=parameters, verbose=True),
-        dummy_vectors, verbose=True)
+    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, parameters=parameters, verbose=False),
+        dummy_vectors, verbose=False)
     print "test 2"
     gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, parameters=parameters,
         cost_grad_func=neg_sampling_cost_and_gradient), dummy_vectors)

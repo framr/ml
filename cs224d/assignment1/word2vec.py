@@ -104,11 +104,11 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     Negative sampling cost function for word2vec models 
     Input:
         - predicted: vector 1 x D, vector for input word
-    Output:
-        output_vectors: size V x D array
+        - output_vectors: size V x D array
+        - 
     """
     parameters = parameters if parameters else {}
-    noise_sample_size = parameters.get('noise_sample_size', 10)
+    noise_sample_size = parameters.get('noise_sample_size', 2)
 
     score = np.dot(predicted, output_vectors[target])
 
@@ -120,20 +120,22 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
  
     w = output_vectors[indices] # K x D vector
     score_noise = np.dot(w, predicted).T # 1 x K vector
-    print "score: %s" % score
-    print "noise score: %s " % score_noise
+    #print "output vectors:\n", w
+    #print "input vector:\n", predicted
+    #print "score: %s" % score
+    #print "noise score: %s " % score_noise
 
     cost = -np.log(sigmoid(score)) - np.log(sigmoid(-score_noise)).sum()
 
-    grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * predicted
-
+    grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * output_vectors[target]
     grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * predicted[np.newaxis, :]
+
     grad_out = - (1 - sigmoid(np.dot(output_vectors[target], predicted))) * predicted
 
     # memory inefficient, lots of zeros
     grad = np.zeros(output_vectors.shape)
     grad[indices] = grad_out_noise
-    grad[target] = grad_out
+    grad[target] += grad_out   # add gradient here since noise sample and target can be the same in principle
 
     return cost, grad_pred, grad
 
