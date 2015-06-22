@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import random
 import pytest
+import string
 
 from cs224d.data_utils import StanfordSentiment
 from wordvec import back_prop1, back_prop2
@@ -93,7 +94,6 @@ if __name__ == '__main__':
     
     @pytest.fixture(params=[1, 5, 10])
     def tokens():
-        import string
         return random.sample(string.letters, param)
 
     class DummyDataset(object):
@@ -107,20 +107,26 @@ if __name__ == '__main__':
             return center, context
 
 
+    @pytest.fixture(scope='module')
+    def parameters():
+        return AttrDict({'context_size' : 5,'sgd' : {'batch_size': 50}, 'dataset' : {}})
 
-    parameters = AttrDict(
-            {
-            'context_size' : 5,
-            'sgd' : {'batch_size': 50},
-            'dataset' : {}
-            }
-    )
-    random.seed(31415)
-    np.random.seed(9265)
-    dummy_vectors = normalize_rows(np.random.randn(10,3))
-    dummy_tokens = dict([("a",0), ("b",1), ("c",2), ("d",3), ("e",4)])
+    @pytest.fixture:
+    def vectors():
+        return normalize_rows(np.random.randn(10, 3))
 
-  
+    @pytest.fixture:
+    def input_vectors(vectors):
+        return vectors[0]
+    @pytest.fixture:
+    def output_vectors(vectors):
+        return vectors[1:]
+
+    @pytest.fixture(params=[softmax_cost_and_gradient, neg_sampling_cost_and_gradient]) 
+    def test_cost_and_grad_func_inputvec(input_vectors, output_vectors, parameters):
+        grad_func = lambda w: param(w, )
+
+
     print "==== Gradient check for soft_max_cost_and_gradient ===="
     def g_func_wrapper1(f, *params, **kws):
         cost, grad_pred, grad = f(*params, **kws)
