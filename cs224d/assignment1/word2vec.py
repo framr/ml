@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys
 import os
@@ -225,7 +225,7 @@ def cbow(current_word, context_size, context_words, tokens, input_vectors, outpu
 # Implement a function that normalizes each row of a matrix to have unit length
 def normalize_rows(x):
     """ Row normalization function """   
-    return x / (x * x).sum(1)[:, np.newaxis] 
+    return x / np.sqrt((x * x).sum(1))[:, np.newaxis] 
 
 
 def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_grad_func=softmax_cost_and_gradient, verbose=False):
