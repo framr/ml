@@ -125,7 +125,7 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     #print "score: %s" % score
     #print "noise score: %s " % score_noise
 
-    cost = -np.log(sigmoid(score)) - np.log(sigmoid(-score_noise)).sum()
+    cost = -np.log(sigmoid(score)) - np.log(1 - sigmoid(score_noise)).sum()
 
     grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * output_vectors[target]
     grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * predicted[np.newaxis, :]
@@ -140,7 +140,7 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     return cost, grad_pred, grad
 
 def skipgram(current_word, context_size, context_words, tokens, input_vectors, output_vectors, 
-        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None):
+        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None, verbose=False):
     """
     Calculate skipgram cost and gradients for one context window
     Inputs:                                                         
@@ -168,17 +168,24 @@ def skipgram(current_word, context_size, context_words, tokens, input_vectors, o
     grad_in = np.zeros_like(input_vectors)
     grad_out = np.zeros_like(output_vectors)
     for word in context_words:
+        if verbose:
+            print "skipgram: considering %s in the context of %s" % (current_word, word)
         cost, grad_pred, grad = cost_grad_func(current_vec, tokens[word], output_vectors, 
                 dataset=dataset, parameters=parameters)
         grad_in[tokens[current_word]] += grad_pred
         grad_out += grad
         total_cost += cost
+        if verbose:
+            print "skipgram cost, grad_pred, grad:\n", cost, "\n", grad_pred, "\n", grad
+
+#print "skipgram: considering %s in the context of %s" % (current_word, word)
+ 
 
     return total_cost, grad_in, grad_out
 
 
 def cbow(current_word, context_size, context_words, tokens, input_vectors, output_vectors, 
-        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None):
+        cost_grad_func=softmax_cost_and_gradient, dataset=None, parameters=None, verbose=False):
     """
     Calculate cbow cost and gradients for one context window
     Inputs:                                                         
@@ -247,16 +254,18 @@ def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_
             denom = 1
        
         if verbose:
-            print "Batch element %d" % i
-            print "Evaluating model at center word %s, inside context %s" % (centerword, ' '.join(context))
-        cost, grad_in, grad_out = model(centerword, context_size, context, tokens, input_vectors, output_vectors,
-            cost_grad_func, dataset=dataset, parameters=parameters)
+            print "sgd wrapper: Batch element %d" % i
+            print "sgd wrapper: Evaluating model at center word %s, inside context %s" % (centerword, ' '.join(context))
+        cost, grad_in, grad_out = model(centerword, C1, context, tokens, input_vectors, output_vectors,
+            cost_grad_func, dataset=dataset, parameters=parameters, verbose=verbose)
         total_cost += cost / batchsize / denom
         grad[:N/2, :] += grad_in / batchsize / denom
         grad[N/2:, :] += grad_out / batchsize / denom
         if verbose:
-            print "Total cost = %s, current cost = %s" % (total_cost, cost)
-            print "Updated gradient\n", grad 
+            print "sgd wrapper: input vectors\n", input_vectors
+            print "sgd wrapper: output vectors\n", output_vectors
+            print "sgd wrapper: Total cost = %s, current cost = %s" % (total_cost, cost)
+            print "sgd wrapper: Updated gradient\n", grad 
     return total_cost, grad
 
 
