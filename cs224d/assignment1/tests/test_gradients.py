@@ -11,24 +11,30 @@ print sys.path
 
 from assignment1.cs224d.data_utils import StanfordSentiment
 from assignment1.wordvec import back_prop1, back_prop2
-from assignment1.word2vec import normalize_rows, word2vec_sgd_wrapper, sgd, cbow, skipgram, normalize_rows, neg_sampling_cost_and_gradient, softmax_cost_and_gradient, gradcheck_naive
+from assignment1.word2vec import word2vec_sgd_wrapper, sgd, cbow, skipgram, normalize_rows, neg_sampling_cost_and_gradient, softmax_cost_and_gradient, gradcheck_naive
 
 from attrdict import AttrDict
 
+random.seed(31415)
+np.random.seed(9265)
+
 
 def assert_close(first, second, tolerance=1e-4, norm=1.0):
-
+    print first, second
     if type(first) is np.ndarray and len(first.shape) > 0:
         diff = np.abs(first - second) / np.maximum(norm, first, second)
         violated = diff > tolerance
+        if violated.any():
+            print "input data: checking \n%s vs \n%s" % (first, second)
+            print "diff\n", diff
+            #print "gradient violated at indices %s" % violated
+        assert not violated.any()
+
     else:
         violated = abs(first - second) / max(norm, first, second) > tolerance
- 
-    print violated
-    if violated:
-            print "input data: checking \n%s vs \n%s" % (first, second)
-            print "gradient violated at indices %s" % violated
-    assert not violated
+        print "input data: checking \n%s vs \n%s" % (first, second)
+        assert not violated  
+
       
 def empirical_grad(f, x, step=1e-4, verbose=False):
 
@@ -55,13 +61,6 @@ def empirical_grad(f, x, step=1e-4, verbose=False):
         it.iternext() # Step to next dimension
     return numgrad
 
-
-
-
-#if __name__ == '__main__':
-
-random.seed(31415)
-np.random.seed(9265)
 
 @pytest.fixture(scope='module')
 def gradcheck_data():
@@ -92,12 +91,20 @@ def nn(request):
     return par
 
 def test_neuralnet_grad(nn):
-    f, grad = back_prop1(nn.data, nn.labels, nn.params, dd.dimensions)
-    emp_grad = empirical_grad(lambda params: back_prop1(data, labels, params, dimensions), params)
+    f, grad = back_prop1(nn.data, nn.labels, nn.parameters, nn.dimensions)
+    emp_grad = empirical_grad(lambda params: back_prop1(nn.data, nn.labels, params, nn.dimensions), nn.parameters)
     assert_close(grad, emp_grad)
 
 def test_normalize_rows():
-    assert normalize_rows(np.array([[3.0, 4.0],[1, 2]])), [[0.6, 0.8], [0.4472, 0.8944]]
+    first = normalize_rows(np.array([[3.0, 4.0], [1.0, 2.0]]))
+    second = np.array([[0.6, 0.8], [0.4472, 0.8944]])
+
+    print first
+    print second
+    assert_close(
+        first,
+        second
+    )
 
 
 @pytest.fixture(params=[1, 5, 10])
