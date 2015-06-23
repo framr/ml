@@ -40,7 +40,7 @@ def empirical_grad(f, x, step=1e-4, verbose=False):
 
     rndstate = random.getstate()
     random.setstate(rndstate)  
-    fx, _ = f(x) # Evaluate function value at original point
+    fx = f(x)[0] # Evaluate function value at original point
 
     numgrad = np.zeros_like(x)
     # Iterate over all indexes in x
@@ -52,10 +52,10 @@ def empirical_grad(f, x, step=1e-4, verbose=False):
         
         x[ix] += 0.5 * step
         random.setstate(rndstate)
-        f2, _ = f(x)
+        f2 = f(x)[0]
         x[ix] -= step
         random.setstate(rndstate)
-        f1, _ = f(x)
+        f1 = f(x)[0]
         numgrad[ix] = (f2 - f1) / step
         x[ix] += 0.5 * step
         it.iternext() # Step to next dimension
