@@ -9,6 +9,7 @@ import random
 import numpy as np
 
 
+
 # Save parameters every a few SGD iterations as fail-safe
 SAVE_PARAMS_EVERY = 1000
 
