@@ -107,10 +107,11 @@ def test_normalize_rows():
     )
 
 
-@pytest.fixture(params=[1, 5, 10, 50])
+@pytest.fixture(params=[1, 5, 10, 20])
 def tokens(request):
     """
     Output: array of tokens - a vocabulary
+    Params: size of vocabulary
     """
     return random.sample(string.letters, request.param)
 
@@ -121,15 +122,22 @@ class DummyDataset(object):
         self.dim = len(self.tokens)
     def sample_token_idx(self):
         """ return random word index from dataset """
+        return random.randint(0, self.dim - 1)
+    def sample_word_pos(self):
+        """ return random word index from dataset """
         return random.randint(0, len(self.data) - 1)
-    def get_context(size, self):
+    def get_context(self, size):
         """ get random word and context from dataset"""
-        center = self.data[self.sample_token_idx()]
-        context = [self.data[self.sample_token_idx()] for i in xrange(2 * size)]
+        center = self.data[self.sample_word_pos()]
+        context = [self.data[self.sample_word_pos()] for i in xrange(2 * size)]
         return center, context
 
 @pytest.fixture(params=[10, 100])
 def dataset(request, tokens):
+    """ 
+    Generate random dataset
+    Params: dataset size
+    """
     return DummyDataset(tokens, request.param)
 
 @pytest.fixture
@@ -138,6 +146,10 @@ def model_parameters():
 
 @pytest.fixture(params=[3, 10, 50])
 def vectors(request, dataset):
+    """
+    Generate random word vectors
+    Params: dimensionality
+    """
     output_vec = normalize_rows(np.random.randn(dataset.dim, request.param))
     input_vec = normalize_rows(np.random.randn(1, request.param))
     return input_vec, output_vec
@@ -149,15 +161,15 @@ def cost_grad_func(request):
 def test_cost_and_grad_func_inputvec(cost_grad_func, vectors, dataset, model_parameters):
     target = 0
     input_vectors, output_vectors = vectors
-    cost, grad_input, grad_output = cost_grad_func(input_vectors, target, output_vectors, dataset,
+    cost, grad_input, grad_output = cost_grad_func(input_vectors[0], target, output_vectors, dataset,
         parameters=model_parameters)
 
     grad_func_input = lambda w: cost_grad_func(w, target, output_vectors, dataset,
         parameters=model_parameters)
-    grad_func_output = lambda w: cost_grad_func(input_vectors, target, w, dataset,
+    grad_func_output = lambda w: cost_grad_func(input_vectors[0], target, w, dataset,
         parameters=model_parameters)
 
-    empirical_grad_in = empirical_grad(grad_func_input, input_vectors)
+    empirical_grad_in = empirical_grad(grad_func_input, input_vectors[0])
     empirical_grad_out = empirical_grad(grad_func_output, output_vectors)
 
 
