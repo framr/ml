@@ -107,46 +107,48 @@ def test_normalize_rows():
     )
 
 
-@pytest.fixture(params=[1, 5, 10])
+@pytest.fixture(params=[1, 5, 10, 50])
 def tokens(request):
     """
-    Output: array of tokens
+    Output: array of tokens - a vocabulary
     """
     return random.sample(string.letters, request.param)
 
 class DummyDataset(object):
-    def __init__(self, tokens):
-        self.tokens = tokens
+    def __init__(self, tokens, size):
+        self.data = np.random.choice(tokens, size)
+        self.tokens = np.unique(self.data)
+        self.dim = len(self.tokens)
     def sample_token_idx(self):
-        return random.randint(0, len(self.tokens) - 1)
+        """ return random word index from dataset """
+        return random.randint(0, len(self.data) - 1)
     def get_context(size, self):
-        center = tokens[self.sample_token_idx()]
-        context = [tokens[self.sample_token_idx()] for i in xrange(2 * size)]
+        """ get random word and context from dataset"""
+        center = self.data[self.sample_token_idx()]
+        context = [self.data[self.sample_token_idx()] for i in xrange(2 * size)]
         return center, context
 
+@pytest.fixture(params=[10, 100])
+def dataset(request, tokens):
+    return DummyDataset(tokens, request.param)
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def model_parameters():
-    return AttrDict({'context_size' : 5,'sgd' : {'batch_size': 50}, 'dataset' : {}})
+    return AttrDict({'context_size' : 5, 'sgd' : {'batch_size': 50}, 'dataset' : {}})
 
-@pytest.fixture(scope='module')
-def vectors():
-    return normalize_rows(np.random.randn(10, 3))
-
-@pytest.fixture(scope='module')
-def input_vectors(vectors):
-    return vectors[0]
-@pytest.fixture(scope='module')
-def output_vectors(vectors):
-    return vectors[1:]
+@pytest.fixture(params=[3, 10, 50])
+def vectors(request, dataset):
+    output_vec = normalize_rows(np.random.randn(dataset.dim, request.param))
+    input_vec = normalize_rows(np.random.randn(1, request.param))
+    return input_vec, output_vec
 
 @pytest.fixture(params=[softmax_cost_and_gradient, neg_sampling_cost_and_gradient]) 
 def cost_grad_func(request):
     return request.param
 
-def test_cost_and_grad_func_inputvec(cost_grad_func, input_vectors, output_vectors, tokens, model_parameters):
-    dataset = DummyDataset(tokens)
+def test_cost_and_grad_func_inputvec(cost_grad_func, vectors, dataset, model_parameters):
     target = 0
+    input_vectors, output_vectors = vectors
     cost, grad_input, grad_output = cost_grad_func(input_vectors, target, output_vectors, dataset,
         parameters=model_parameters)
 
