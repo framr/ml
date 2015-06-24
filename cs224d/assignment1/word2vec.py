@@ -109,7 +109,7 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
         - 
     """
     parameters = parameters if parameters else {}
-    noise_sample_size = parameters.get('noise_sample_size', 2)
+    noise_sample_size = parameters.get('noise_sample_size', 5)
 
     score = np.dot(predicted, output_vectors[target])
 
@@ -179,8 +179,7 @@ def skipgram(current_word, context_size, context_words, tokens, input_vectors, o
         if verbose:
             print "skipgram cost, grad_pred, grad:\n", cost, "\n", grad_pred, "\n", grad
 
-#print "skipgram: considering %s in the context of %s" % (current_word, word)
- 
+
 
     return total_cost, grad_in, grad_out
 

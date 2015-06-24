@@ -119,6 +119,8 @@ def test_cost_and_grad_func_inputvec(cost_grad_func, vectors, dataset, model_par
     cost, grad_input, grad_output = cost_grad_func(input_vectors[0], target, output_vectors, dataset,
         parameters=model_parameters)
 
+    #XXX
+    #WTF???? why it succedes without using saving and restoring random state???
     grad_func_input = lambda w: cost_grad_func(w, target, output_vectors, dataset,
         parameters=model_parameters)
     grad_func_output = lambda w: cost_grad_func(input_vectors[0], target, w, dataset,
