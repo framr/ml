@@ -1,65 +1,23 @@
 #!/usr/bin/env python
-
 import os
 import sys
 import numpy as np
 import random
 import pytest
 import string
+from attrdict import AttrDict
 
-print sys.path
 
-from assignment1.cs224d.data_utils import StanfordSentiment
 from assignment1.wordvec import back_prop1, back_prop2
 from assignment1.word2vec import word2vec_sgd_wrapper, sgd, cbow, skipgram, normalize_rows, neg_sampling_cost_and_gradient, softmax_cost_and_gradient, gradcheck_naive
 
-from attrdict import AttrDict
+
+from .conftest import empirical_grad, assert_close
+
 
 random.seed(31415)
 np.random.seed(9265)
 
-
-def assert_close(first, second, tolerance=1e-4, norm=1.0):
-    print first, second
-    if type(first) is np.ndarray and len(first.shape) > 0:
-        diff = np.abs(first - second) / np.maximum(norm, first, second)
-        violated = diff > tolerance
-        if violated.any():
-            print "input data: checking \n%s vs \n%s" % (first, second)
-            print "diff\n", diff
-            #print "gradient violated at indices %s" % violated
-        assert not violated.any()
-
-    else:
-        violated = abs(first - second) / max(norm, first, second) > tolerance
-        print "input data: checking \n%s vs \n%s" % (first, second)
-        assert not violated  
-
-      
-def empirical_grad(f, x, step=1e-4, verbose=False):
-
-    rndstate = random.getstate()
-    random.setstate(rndstate)  
-    fx = f(x)[0] # Evaluate function value at original point
-
-    numgrad = np.zeros_like(x)
-    # Iterate over all indexes in x
-    it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
-    while not it.finished:
-        ix = it.multi_index
-        if verbose:
-            print "Gradient check at dimension %s" % str(ix)
-        
-        x[ix] += 0.5 * step
-        random.setstate(rndstate)
-        f2 = f(x)[0]
-        x[ix] -= step
-        random.setstate(rndstate)
-        f1 = f(x)[0]
-        numgrad[ix] = (f2 - f1) / step
-        x[ix] += 0.5 * step
-        it.iternext() # Step to next dimension
-    return numgrad
 
 
 @pytest.fixture(scope='module')
@@ -98,9 +56,6 @@ def test_neuralnet_grad(nn):
 def test_normalize_rows():
     first = normalize_rows(np.array([[3.0, 4.0], [1.0, 2.0]]))
     second = np.array([[0.6, 0.8], [0.4472, 0.8944]])
-
-    print first
-    print second
     assert_close(
         first,
         second
