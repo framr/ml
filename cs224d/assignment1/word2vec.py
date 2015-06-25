@@ -7,7 +7,7 @@ import cPickle as pickle
 
 import random
 import numpy as np
-
+import scipy.stats
 
 
 # Save parameters every a few SGD iterations as fail-safe
@@ -119,7 +119,12 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     else:
         indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
 
-    indices = np.unique(indices)
+    indices_stats = scipy.stats.itemfreq(indices)
+    indices = indices_stats.T[0].astype(int)
+    indices_weight = indices_stats.T[1]
+    #print indices, target
+    #print indices_weight
+
 
     w = output_vectors[indices] # K x D vector
     score_noise = np.dot(w, predicted).T # 1 x K vector
@@ -132,16 +137,16 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     #print "score: %s" % score
     #print "noise score: %s " % score_noise
 
-    cost = -np.log(sigmoid(score)) - np.log(1 - sigmoid(score_noise)).sum()
+    cost = -np.log(sigmoid(score)) - (np.log(1 - sigmoid(score_noise)) * indices_weight).sum()
 
-    grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * output_vectors[target]
+    grad_pred = np.dot(sigmoid(score_noise) * indices_weight, w) - (1 - sigmoid(score)) * output_vectors[target]
     grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * predicted[np.newaxis, :]
 
     grad_out = -(1 - sigmoid(np.dot(output_vectors[target], predicted))) * predicted
 
     # memory inefficient, lots of zeros
     grad = np.zeros(output_vectors.shape)
-    grad[indices] = grad_out_noise
+    grad[indices] = grad_out_noise * indices_weight[:, np.newaxis]
     grad[target] += grad_out   # add gradient here since noise sample and target can be the same in principle
 
     return cost, grad_pred, grad

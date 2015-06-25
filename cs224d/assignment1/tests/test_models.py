@@ -61,7 +61,7 @@ def dataset(request, tokens):
 
 @pytest.fixture
 def model_parameters():
-    return AttrDict({'context_size' : 5, 'sgd' : {'batch_size': 50}, 'dataset' : {}, 'noise_sample_size': 2})
+    return AttrDict({'context_size' : 5, 'sgd' : {'batch_size': 50}, 'dataset' : {}, 'noise_sample_size': 5})
 
 @pytest.fixture(params=[3, 10, 20])
 def vectors(request, dataset):
@@ -100,14 +100,7 @@ def model_gradients(grad_func, dataset, vectors, model_parameters):
     empirical_grad_out = empirical_grad(grad_out_func, output_vectors)
 
     assert_close(grad_in, empirical_grad_in)
-    #print "AAA\n", grad_in
-    #print "BBB\n", empirical_grad_in
-
-
     assert_close(grad_out, empirical_grad_out)
-    #print "AAA\n", grad_out
-    #print "BBB\n", empirical_grad_out
-
 
 def test_skipgram_gradients(dataset, vectors, model_parameters):
     model_gradients(softmax_cost_and_gradient, dataset, vectors, model_parameters)
