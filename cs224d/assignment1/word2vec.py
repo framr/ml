@@ -118,9 +118,15 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
         indices = np.random.choice(output_vectors.shape[0], size=noise_sample_size)
     else:
         indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
- 
+
+    indices = np.unique(indices)
+
     w = output_vectors[indices] # K x D vector
     score_noise = np.dot(w, predicted).T # 1 x K vector
+    #print "indices\n", indices
+    #print "w\n", w 
+    #print "predicted\n", predicted 
+    #print "score_noise\n", score_noise
     #print "output vectors:\n", w
     #print "input vector:\n", predicted
     #print "score: %s" % score
@@ -131,7 +137,7 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     grad_pred = np.dot(sigmoid(score_noise), w) - (1 - sigmoid(score)) * output_vectors[target]
     grad_out_noise = sigmoid(score_noise).T[:, np.newaxis] * predicted[np.newaxis, :]
 
-    grad_out = - (1 - sigmoid(np.dot(output_vectors[target], predicted))) * predicted
+    grad_out = -(1 - sigmoid(np.dot(output_vectors[target], predicted))) * predicted
 
     # memory inefficient, lots of zeros
     grad = np.zeros(output_vectors.shape)

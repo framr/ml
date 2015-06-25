@@ -3,6 +3,10 @@ import sys
 import os
 import numpy as np
 import random
+import pytest
+import string
+from attrdict import AttrDict
+
 
 from assignment1.cs224d.data_utils import StanfordSentiment
 from assignment1.wordvec import back_prop1, back_prop2
@@ -47,7 +51,7 @@ class DummyDataset(object):
         context = [self.data[self.sample_word_pos()] for i in xrange(2 * size)]
         return center, context
 
-@pytest.fixture(params=[10, 100])
+@pytest.fixture(params=[5, 25])
 def dataset(request, tokens):
     """ 
     Generate random dataset
@@ -57,9 +61,9 @@ def dataset(request, tokens):
 
 @pytest.fixture
 def model_parameters():
-    return AttrDict({'context_size' : 5, 'sgd' : {'batch_size': 50}, 'dataset' : {}, 'noise_sample_size': 5})
+    return AttrDict({'context_size' : 5, 'sgd' : {'batch_size': 50}, 'dataset' : {}, 'noise_sample_size': 2})
 
-@pytest.fixture(params=[3, 10, 50])
+@pytest.fixture(params=[3, 10, 20])
 def vectors(request, dataset):
     """
     Generate random word vectors
@@ -76,13 +80,51 @@ def cost_grad_func(request):
 #@pytest.fixture
 #def random_context(dataset):
     
-def test_skipgram_gradients(dataset, vectors, model_parameters):
+def model_gradients(grad_func, dataset, vectors, model_parameters):
     input_vectors, output_vectors = vectors
-    center_word, context_words = dataset.get_context()
+    center_word, context_words = dataset.get_context(model_parameters.context_size)
 
     rndstate = random.getstate()
     random.setstate(rndstate)
     cost, grad_in, grad_out = skipgram(center_word, len(context_words), context_words, dataset.tokens, input_vectors, output_vectors, 
+        cost_grad_func=grad_func, dataset=dataset, parameters=model_parameters, verbose=False)
+
+    grad_in_func = lambda w: skipgram(center_word, len(context_words), context_words, dataset.tokens, w, output_vectors, 
+        cost_grad_func=grad_func, dataset=dataset, parameters=model_parameters, verbose=False)
+    grad_out_func = lambda w: skipgram(center_word, len(context_words), context_words, dataset.tokens, input_vectors, w, 
+        cost_grad_func=grad_func, dataset=dataset, parameters=model_parameters, verbose=False)
+
+    random.setstate(rndstate) 
+    empirical_grad_in = empirical_grad(grad_in_func, input_vectors)
+    random.setstate(rndstate) 
+    empirical_grad_out = empirical_grad(grad_out_func, output_vectors)
+
+    assert_close(grad_in, empirical_grad_in)
+    #print "AAA\n", grad_in
+    #print "BBB\n", empirical_grad_in
+
+
+    assert_close(grad_out, empirical_grad_out)
+    #print "AAA\n", grad_out
+    #print "BBB\n", empirical_grad_out
+
+
+def test_skipgram_gradients(dataset, vectors, model_parameters):
+    model_gradients(softmax_cost_and_gradient, dataset, vectors, model_parameters)
+ 
+def test_negsampling_gradients(dataset, vectors, model_parameters):
+    model_gradients(neg_sampling_cost_and_gradient, dataset, vectors, model_parameters)
+ 
+
+
+"""
+def test_cbow_gradients(dataset, vectors, model_parameters):
+    input_vectors, output_vectors = vectors
+    center_word, context_words = dataset.get_context(model_parameters.context_size)
+
+    rndstate = random.getstate()
+    random.setstate(rndstate)
+    cost, grad_in, grad_out = cbow(center_word, len(context_words), context_words, dataset.tokens, input_vectors, output_vectors, 
         cost_grad_func=softmax_cost_and_gradient, dataset=dataset, parameters=model_parameters, verbose=False)
 
     grad_in_func = lambda w: skipgram(center_word, len(context_words), context_words, dataset.tokens, w, output_vectors, 
@@ -97,7 +139,7 @@ def test_skipgram_gradients(dataset, vectors, model_parameters):
     assert_close(grad_in, empirical_grad_in)
     assert_close(grad_out, empirical_grad_out)
 
-
+"""
 
     
 
