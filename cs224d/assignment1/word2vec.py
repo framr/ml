@@ -119,24 +119,17 @@ def neg_sampling_cost_and_gradient(predicted, target, output_vectors, dataset=No
     else:
         indices = np.asarray([dataset.sample_token_idx() for _ in xrange(noise_sample_size)])
 
+
+    """
+    We have to handle case of repetitions in negative examples (elements of indiced array) properly.
+    This is done here via multiplying the gradients of repeated samples by weights.
+    """
     indices_stats = scipy.stats.itemfreq(indices)
     indices = indices_stats.T[0].astype(int)
     indices_weight = indices_stats.T[1]
-    #print indices, target
-    #print indices_weight
-
 
     w = output_vectors[indices] # K x D vector
     score_noise = np.dot(w, predicted).T # 1 x K vector
-    #print "indices\n", indices
-    #print "w\n", w 
-    #print "predicted\n", predicted 
-    #print "score_noise\n", score_noise
-    #print "output vectors:\n", w
-    #print "input vector:\n", predicted
-    #print "score: %s" % score
-    #print "noise score: %s " % score_noise
-
     cost = -np.log(sigmoid(score)) - (np.log(1 - sigmoid(score_noise)) * indices_weight).sum()
 
     grad_pred = np.dot(sigmoid(score_noise) * indices_weight, w) - (1 - sigmoid(score)) * output_vectors[target]
@@ -222,14 +215,17 @@ def cbow(current_word, context_size, context_words, tokens, input_vectors, outpu
     # Here we are calculatinng input vector as average over all input context words
     indices = [tokens[w] for w in context_words]
     current_vec = input_vectors[indices].sum(0)
-    current_vec /= len(context_words)
+    #current_vec /= len(context_words)
 
     cost = 0
     grad_in = np.zeros_like(input_vectors)
     cost, grad_pred, grad_out = cost_grad_func(current_vec, tokens[current_word], output_vectors, 
         dataset=dataset, parameters=parameters)
 
-    grad_in[indices] = grad_pred
+    indices_stats = scipy.stats.itemfreq(indices)
+    indices = indices_stats.T[0].astype(int)
+    indices_weight = indices_stats.T[1]
+    grad_in[indices] = grad_pred[np.newaxis, :] * indices_weight[:, np.newaxis]
     return cost, grad_in, grad_out
 
 

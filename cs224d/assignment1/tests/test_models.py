@@ -110,7 +110,6 @@ def test_negsampling_gradients(dataset, vectors, model_parameters):
  
 
 
-"""
 def test_cbow_gradients(dataset, vectors, model_parameters):
     input_vectors, output_vectors = vectors
     center_word, context_words = dataset.get_context(model_parameters.context_size)
@@ -120,9 +119,9 @@ def test_cbow_gradients(dataset, vectors, model_parameters):
     cost, grad_in, grad_out = cbow(center_word, len(context_words), context_words, dataset.tokens, input_vectors, output_vectors, 
         cost_grad_func=softmax_cost_and_gradient, dataset=dataset, parameters=model_parameters, verbose=False)
 
-    grad_in_func = lambda w: skipgram(center_word, len(context_words), context_words, dataset.tokens, w, output_vectors, 
+    grad_in_func = lambda w: cbow(center_word, len(context_words), context_words, dataset.tokens, w, output_vectors, 
         cost_grad_func=softmax_cost_and_gradient, dataset=dataset, parameters=model_parameters, verbose=False)
-    grad_out_func = lambda w: skipgram(center_word, len(context_words), context_words, dataset.tokens, input_vectors, w, 
+    grad_out_func = lambda w: cbow(center_word, len(context_words), context_words, dataset.tokens, input_vectors, w, 
         cost_grad_func=softmax_cost_and_gradient, dataset=dataset, parameters=model_parameters, verbose=False)
 
     random.setstate(rndstate) 
@@ -132,7 +131,6 @@ def test_cbow_gradients(dataset, vectors, model_parameters):
     assert_close(grad_in, empirical_grad_in)
     assert_close(grad_out, empirical_grad_out)
 
-"""
 
     
 
