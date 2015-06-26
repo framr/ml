@@ -252,7 +252,7 @@ def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_
         print 'Wrapper'
     for i in xrange(batchsize):
         C1 = random.randint(1, context_size)
-        centerword, context = dataset.get_context(C1, parameters.dataset)
+        centerword, context = dataset.get_context(C1)
         
         #WTF??
         if model == skipgram:

@@ -133,7 +133,16 @@ def test_cbow_gradients(dataset, vectors, model_parameters):
 
 
     
+def test_sgd_wrapper(dataset, vectors, model_parameters):
 
+    vec = np.hstack(vectors)
+    rndstate = random.getstate()
+    cost, grad = word2vec_sgd_wrapper(skipgram, dataset.tokens, vec, dataset, parameters=model_parameters, verbose=False)
+
+    func = lambda vec: word2vec_sgd_wrapper(skipgram, dataset.tokens, vec, dataset, parameters=model_parameters, verbose=False)
+    random.setstate(rndstate)
+    emp_grad = empirical_grad(func, vec)
+    assert_close(grad, emp_grad)
 
 
 '''
