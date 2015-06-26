@@ -135,7 +135,8 @@ def test_cbow_gradients(dataset, vectors, model_parameters):
     
 def test_sgd_wrapper(dataset, vectors, model_parameters):
 
-    vec = np.hstack(vectors)
+    vec = np.vstack(vectors)
+    print vec.shape
     rndstate = random.getstate()
     cost, grad = word2vec_sgd_wrapper(skipgram, dataset.tokens, vec, dataset, parameters=model_parameters, verbose=False)
 
