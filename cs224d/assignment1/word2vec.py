@@ -11,8 +11,6 @@ import scipy.stats
 
 
 # Save parameters every a few SGD iterations as fail-safe
-SAVE_PARAMS_EVERY = 1000
-
 
 def gradcheck_naive(f, x, step=1e-4, tolerance=1e-5, verbose=False):
     """ 
@@ -298,7 +296,7 @@ def save_params(iter, params):
         pickle.dump(params, f)
         pickle.dump(random.getstate(), f)
 
-def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, tolerance=1e-5, print_every=10):
+def sgd(f, x0, parameters, postprocessing=None, use_saved=False, print_every=10, save_params_every=5000):
     """ 
     Stochastic Gradient Descent                                               
     Inputs:                                                         
@@ -317,8 +315,11 @@ def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, tolerance
     """
 
     # Anneal learning rate every several iterations
-    ANNEAL_EVERY = 20000
-    ANNEAL_FACTOR = 0.5
+    ANNEAL_EVERY = parameters.sgd.anneal_every
+    ANNEAL_FACTOR = parameters.sgd.anneal_factor
+    iterations = parameters.sgd.iterations
+    step = parameters.sgd.step
+    tolerance = parameters.sgd.tolerance
 
     if use_saved:
         start_iter, oldx, state = load_saved_params()
@@ -338,23 +339,27 @@ def sgd(f, x0, step, iterations, postprocessing=None, use_saved=False, tolerance
     
     expcost = None
     old_cost = None
+    print "i  cost delta"
     for iter in xrange(start_iter + 1, iterations + 1):
         
         cost, grad = f(x)
-        x -= step * grad
-        posprocessing(x)
+        x = x - step * grad
+        postprocessing(x)
         
-        if iter % SAVE_PARAMS_EVERY == 0 and use_saved:
+        if iter % save_params_every == 0 and use_saved:
             save_params(iter, x)
             
         if iter % ANNEAL_EVERY == 0:
             step *= ANNEAL_FACTOR
     
+        dcost = 0
+        if old_cost is not None:
+            dcost = abs(cost - old_cost) / old_cost
         if iter % print_every == 0:
-            print "%d  %e" % (iter, cost)
-        if old_cost is not None and abs((cost - old_cost) / old_cost) < tolerance:
-            print "Relative cost change %e below tolerance threshold, exiting" % (cost - old_cost) / old_cost
-
+            print "%d  %f %f" % (iter, cost, dcost)
+        if old_cost is not None and dcost < tolerance:
+            print "Relative cost change below tolerance threshold, exiting"
+            break
         old_cost = cost
 
     return x

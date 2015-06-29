@@ -2,7 +2,9 @@
 # 
 # Now, with the word vectors you trained, we are going to perform a simple sentiment analysis.
 # 
-# For each sentence in the Stanford Sentiment Treebank dataset, we are going to use the average of all the word vectors in that sentence as its feature, and try to predict the sentiment level of the said sentence. The sentiment level of the phrases are represented as real values in the original dataset, here we'll just use five classes:
+# For each sentence in the Stanford Sentiment Treebank dataset, we are going to use the average of all the word vectors 
+#in that sentence as its feature, and try to predict the sentiment level of the said sentence. 
+#The sentiment level of the phrases are represented as real values in the original dataset, here we'll just use five classes:
 # 
 #     "very negative", "negative", "neutral", "positive", "very positive"
 #     
@@ -14,45 +16,43 @@
 
 # Now, implement some helper functions
 
-def getSentenceFeature(tokens, wordVectors, sentence):
-    """ Obtain the sentence feature for sentiment analysis by averaging its word vectors """
-    ###################################################################
-    # Implement computation for the sentence features given a         #
-    # sentence.                                                       #
-    # Inputs:                                                         #
-    #   - tokens: a dictionary that maps words to their indices in    #
-    #             the word vector list                                #
-    #   - wordVectors: word vectors for all tokens                    #
-    #   - sentence: a list of words in the sentence of interest       #
-    # Output:                                                         #
-    #   - sentVector: feature vector for the sentence                 #
-    ###################################################################
-    
-    sentVector = np.zeros((wordVectors.shape[1],))
+def get_sentence_feature(tokens, wordVectors, sentence):
+    """
+    Obtain the sentence feature for sentiment analysis by averaging its word vectors
+    Inputs:                                                         
+       - tokens: a dictionary that maps words to their indices in    
+                 the word vector list                                
+       - word_vectors: word vectors for all tokens                    
+       - sentence: a list of words in the sentence of interest       
+    Output:                                                         
+       - sent_vector: feature vector for the sentence                 
+    """    
+    sent_vector = np.zeros((wordVectors.shape[1],))
     
     ### YOUR CODE HERE
     
     ### END YOUR CODE
     
-    return sentVector
+    return sent_vector
 
-def softmaxRegression(features, labels, weights, regularization = 0.0, nopredictions = False):
-    """ Softmax Regression """
-    ###################################################################
-    # Implement softmax regression with weight regularization.        #
-    # Inputs:                                                         #
-    #   - features: feature vectors, each row is a feature vector     #
-    #   - labels: labels corresponding to the feature vectors         #
-    #   - weights: weights of the regressor                           #
-    #   - regularization: L2 regularization constant                  #
-    # Output:                                                         #
-    #   - cost: cost of the regressor                                 #
-    #   - grad: gradient of the regressor cost with respect to its    #
-    #           weights                                               #
-    #   - pred: label predictions of the regressor (you might find    #
-    #           np.argmax helpful)                                    #
-    ###################################################################
-    
+
+def softmax_regression(features, labels, weights, regularization = 0.0, nopredictions = False):
+    """ 
+    Softmax Regression
+    Implement softmax regression with weight regularization.       
+    Inputs:                                                        
+      - features: feature vectors, each row is a feature vector     
+      - labels: labels corresponding to the feature vectors         
+      - weights: weights of the regressor                           
+      - regularization: L2 regularization constant                  
+    Output:                                                         
+      - cost: cost of the regressor                                 
+      - grad: gradient of the regressor cost with respect to its   
+              weights                                              
+      - pred: label predictions of the regressor (you might find    
+              np.argmax helpful)                                    
+    """
+
     prob = softmax(features.dot(weights))
     if len(features.shape) > 1:
         N = features.shape[0]
@@ -77,7 +77,7 @@ def precision(y, yhat):
     return np.sum(y == yhat) * 100.0 / y.size
 
 def softmax_wrapper(features, labels, weights, regularization = 0.0):
-    cost, grad, _ = softmaxRegression(features, labels, weights, regularization)
+    cost, grad, _ = softmax_regression(features, labels, weights, regularization)
     return cost, grad
 
 
