@@ -1,91 +1,39 @@
-# ## 4. Sentiment Analysis
-# 
-# Now, with the word vectors you trained, we are going to perform a simple sentiment analysis.
-# 
-# For each sentence in the Stanford Sentiment Treebank dataset, we are going to use the average of all the word vectors 
-#in that sentence as its feature, and try to predict the sentiment level of the said sentence. 
-#The sentiment level of the phrases are represented as real values in the original dataset, here we'll just use five classes:
-# 
-#     "very negative", "negative", "neutral", "positive", "very positive"
-#     
-# which are represented by 0 to 4 in the code, respectively.
-# 
-# For this part, you will learn to train a softmax regressor with SGD, and perform train/dev validation to improve generalization of your regressor.
+#!/usr/bin/env python
+import sys
+import os
+import numpy as np
+import random
 
-# In[ ]:
+from assignment1.cs224d.sentiment import softmax_regression, softmax_wrapper, precision, get_sentence_feature
 
-# Now, implement some helper functions
-
-def get_sentence_feature(tokens, word_vectors, sentence):
-    """
-    Obtain the sentence feature for sentiment analysis by averaging its word vectors
-    Inputs:                                                         
-       - tokens: a dictionary that maps words to their indices in    
-                 the word vector list                                
-       - word_vectors: word vectors for all tokens                    
-       - sentence: a list of words in the sentence of interest       
-    Output:                                                         
-       - sent_vector: feature vector for the sentence                 
-    """    
-    indices = [tokens[i] for i in sentence]
-    sent_vector = np.average(word_vectors[indices], axis=0)
-    #sent_vector = np.zeros((word_vectors.shape[1],))
-       
-    return sent_vector
-
-
-def softmax_regression(features, labels, weights, regularization=0.0, nopredictions=False):
-    """ 
-    Softmax Regression
-    Implement softmax regression with weight regularization.       
-    Inputs:                                                        
-      - features: feature vectors, each row is a feature vector     
-      - labels: labels corresponding to the feature vectors         
-      - weights: weights of the regressor                           
-      - regularization: L2 regularization constant                  
-    Output:                                                         
-      - cost: cost of the regressor                                 
-      - grad: gradient of the regressor cost with respect to its   
-              weights                                              
-      - pred: label predictions of the regressor (you might find    
-              np.argmax helpful)                                    
-    """
-
-    z = features.dot(weights)
-    p = softmax(z)
-    if len(features.shape) > 1:
-        N = features.shape[0]
-    else:
-        N = 1
-    # A vectorized implementation of    1/N * sum(cross_entropy(x_i, y_i)) + 1/2*|w|^2
-    cost = np.sum(-np.log(prob[range(N), labels])) / N 
-    cost += 0.5 * regularization * np.sum(weights ** 2)
-
-    y = np.zeros(z.shape)
-    y[labels] = 1
-    grad = np.dot(features.T, z - y) + regularization
-    pred = np.argmax(p, axis=1) 
-       
-    if nopredictions:
-        return cost, grad
-    else:
-        return cost, grad, pred
-
-def precision(y, yhat):
-    """ Precision for classifier """
-    assert(y.shape == yhat.shape)
-    return np.sum(y == yhat) * 100.0 / y.size
-
-def softmax_wrapper(features, labels, weights, regularization=0.0):
-    cost, grad, _ = softmax_regression(features, labels, weights, regularization)
-    return cost, grad
-
-
-# In[ ]:
-
-# Gradient check always comes first
 random.seed(314159)
 np.random.seed(265)
+
+
+class DummyDataset(object):
+    def __init__(self, tokens, size):
+        self.data = np.random.choice(tokens, size)
+        self.tokens = np.unique(self.data)
+        self.dim = len(self.tokens)
+    def sample_token_idx(self):
+        """ return random word index from dataset """
+        return random.randint(0, self.dim - 1)
+    def sample_word_pos(self):
+        """ return random word index from dataset """
+        return random.randint(0, len(self.data) - 1)
+    def get_context(self, size):
+        """ get random word and context from dataset"""
+        center = self.data[self.sample_word_pos()]
+        context = [self.data[self.sample_word_pos()] for i in xrange(2 * size)]
+        return center, context
+    def get_random_train_sentence(self):
+        
+
+
+@pytest.fixture(params=[(2, 2), (5, 10), (10, 50)])
+def dataset(request):
+    return DummyDataset(random.sample(string.letters, request.params[0]), request.params[1])
+
 dummy_weights = 0.1 * np.random.randn(dimVectors, 5)
 dummy_features = np.zeros((10, dimVectors))
 dummy_labels = np.zeros((10,), dtype=np.int32)    
@@ -96,7 +44,7 @@ print "==== Gradient check for softmax regression ===="
 gradcheck_naive(lambda weights: softmaxRegression(dummy_features, dummy_labels, weights, 1.0, nopredictions = True), dummy_weights)
 
 print "\n=== For autograder ==="
-print softmaxRegression(dummy_features, dummy_labels, dummy_weights, 1.0)
+print softmax_regression(dummy_features, dummy_labels, dummy_weights, 1.0)
 
 
 # In[ ]:
