@@ -3,26 +3,24 @@ import sys
 import os
 import numpy as np
 import random
-import pytest
-import string
-
 from argparse import ArgumentParser
+from attrdict import AttrDict
 
-
-from word2vec import normalize_rows
+from cs224d.data_utils import StanfordSentiment
+from word2vec import load_saved_params, sgd
 from sentiment import softmax_regression, softmax_wrapper, precision, get_sentence_feature
 
 
 def get_data(dataset, word_vectors, dtype='train'):
 
-    #tokens = dataset.tokens()
+    tokens = dataset.tokens()
     #num_words = len(tokens)
 
     if dtype == 'train':
         data = dataset.getTrainSentences()
     elif dtype == 'dev':
         data = dataset.getTrainSentences()
-    elif dtype = 'test':
+    elif dtype == 'test':
         data = dataset.getTestSentences()
     else:
         raise ValueError('Wrong dataset type requested')
@@ -40,6 +38,8 @@ def get_data(dataset, word_vectors, dtype='train'):
 def read_vectors(infile):
 
     _, word_vectors0, _ = load_saved_params(infile)
+    num_words = word_vectors0.shape[0] / 2
+    print "loaded vectors for %d words" %  num_words
     word_vectors = (word_vectors0[:num_words,:] + word_vectors0[num_words:,:])
     #dim_vectors = word_vectors.shape[1]
     return word_vectors
@@ -51,13 +51,15 @@ if __name__ == '__main__':
     np.random.seed(59265)
 
     argparser = ArgumentParser()
-    argparser.add_argument('--reg', dest='regularization', default=0.0, help='regularization constant')
+    argparser.add_argument('--reg', dest='regularization', default=0.0, help='regularization constant', type=float)
+    argparser.add_argument('-i', dest='iter', default=10000, help='iterations', type=int)
     argparser.add_argument('--vectors', dest='vectors', default=None, help='word vectors file')
 
-    args = agparser.parse_args()
-
+    args = argparser.parse_args()
+   
     # try 0.0, 0.00001, 0.00003, 0.0001, 0.0003, 0.001, 0.003, 0.01 and pick the best
     regularization = args.regularization   
+    iterations = args.iter
 
     word_vectors = read_vectors(args.vectors)
     dim_vectors = word_vectors.shape[1]
@@ -68,18 +70,20 @@ if __name__ == '__main__':
     weights = np.random.randn(dim_vectors, 5)  # D x NUM_LABELS array
     # We will do batch optimization
     params = AttrDict({
-        'sgd' : {'batch_size': 50, 'step': 3.0, 'iterations': 10000, 'tolerance': 1e-48},
+        'sgd' : {'batch_size': 50, 'step': 3.0, 'iterations': iterations, 'tolerance': 0,
+            'anneal_every': 10000, 'anneal_factor': 0.5},
         'dataset' : {}
     })
 
     print "Starting SGD..."
+ 
     weights = sgd(lambda weights: softmax_wrapper(train_features, train_labels, weights, regularization),
-        weights, params, postprocessing=None, use_saved=True, print_every=100, save_params_every=1000)
-
+        weights, params, postprocessing=None, use_saved=False, print_every=500, save_params_every=1000)
 
     print "Testing on dev dataset"
     dev_features, dev_labels = get_data(dataset, word_vectors, dtype='dev')
-       
+    print dev_features.shape, weights.shape
+      
     _, _, pred = softmax_regression(dev_features, dev_labels, weights)
     print "Dev precision (%%): %f" % precision(dev_labels, pred)
 
