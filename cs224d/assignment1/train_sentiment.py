@@ -12,38 +12,63 @@ from word2vec import normalize_rows
 from sentiment import softmax_regression, softmax_wrapper, precision, get_sentence_feature
 
 
-if __name__ == '__main__':
-
-    regularization = 0.0 # try 0.0, 0.00001, 0.00003, 0.0001, 0.0003, 0.001, 0.003, 0.01 and pick the best
-
-    _, word_vectors0, _ = load_saved_params()
-    word_vectors = (word_vectors0[:num_words,:] + word_vectors0[num_words:,:])
- 
-    dim_vectors = word_vectors.shape[1]
-
-    random.seed(3141)
-    np.random.seed(59265)
-    weights = np.random.randn(dim_vectors, 5)  # D x NUM_LABELS array
+def get_data():
 
     dataset = StanfordSentiment()
-    tokens = dataset.tokens()
-    num_words = len(tokens)
-
+    #tokens = dataset.tokens()
+    #num_words = len(tokens)
 
     trainset = dataset.getTrainSentences()
     num_train = len(trainset)
-    train_features = np.zeros((num_train, dim_vectors))
-    train_labels = np.zeros((num_train,), dtype=np.int32)
+    train_features = np.zeros((num_train, dim_vectors))   # N x D
+    train_labels = np.zeros((num_train,), dtype=np.int32) # N x 1 
 
-    for i in xrange(nTrain):
+    for i in xrange(num_train):
         words, train_labels[i] = trainset[i]
         train_features[i, :] = getSentenceFeature(tokens, word_vectors, words)
 
+    return dataset, train_features, train_labels 
+
+def read_vectors():
+
+    _, word_vectors0, _ = load_saved_params()
+    word_vectors = (word_vectors0[:num_words,:] + word_vectors0[num_words:,:])
+    #dim_vectors = word_vectors.shape[1]
+    return word_vectors
+
+def get_dev_data(dataset): 
+
+    # Prepare dev set features
+    devset = dataset.getDevSentences()
+    num_dev = len(devset)
+    dev_features = np.zeros((num_dev, dim_vectors))
+    dev_labels = np.zeros((num_dev,), dtype=np.int32)
+
+    for i in xrange(num_dev):
+        words, dev_labels[i] = devset[i]
+        dev_features[i, :] = getSentenceFeature(tokens, word_vectors, words)
+ 
+    return dev_features, dev_labels
+
+if __name__ == '__main__':
+
+    random.seed(3141)
+    np.random.seed(59265)
+
+    regularization = 0.0 # try 0.0, 0.00001, 0.00003, 0.0001, 0.0003, 0.001, 0.003, 0.01 and pick the best
+
+    word_vectors = read_vectors()
+    dim_vectors = word_vectors.shape[1]
+
+    dataset, train_features, train_labels = read_data()
+
+    weights = np.random.randn(dim_vectors, 5)  # D x NUM_LABELS array
+
     # We will do batch optimization
-    params = AttrDict({'sgd' : {'batch_size': 50}, 'dataset' : {}})
-    params['sgd']['step'] = 3.0
-    params['sgd']['iterations'] = 10000
-    params['sgd']['tolerance'] = 1e-48
+    params = AttrDict({
+        'sgd' : {'batch_size': 50, 'step': 3.0, 'iterations': 10000, 'tolerance': 1e-48},
+        'dataset' : {}
+    })
 
     print "Starting SGD..."
     weights = sgd(lambda weights: softmax_wrapper(train_features, train_labels, weights, regularization),
