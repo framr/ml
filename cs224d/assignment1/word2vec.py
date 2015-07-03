@@ -275,7 +275,7 @@ def word2vec_sgd_wrapper(model, tokens, word_vectors, dataset, parameters, cost_
 
 
 
-def load_saved_params():
+def load_saved_params(filename=None):
     """ A helper function that loads previously saved parameters and resets iteration start """
     st = 0
     for f in glob.glob("saved_params_*.npy"):
@@ -283,8 +283,16 @@ def load_saved_params():
         if (iter > st):
             st = iter
             
-    if st > 0:
-        with open("saved_params_%d.npy" % st, "r") as f:
+    infile = None
+    if filename is not None:
+        infile = filename
+    elif st > 0:
+        infile = "saved_params_%d.npy" % st
+
+    print "File with saved word vectors %s" % infile
+
+    if infile is not None:
+        with open(infile, "r") as f:
             params = pickle.load(f)
             state = pickle.load(f)
         return st, params, state
