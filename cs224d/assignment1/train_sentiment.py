@@ -10,7 +10,13 @@ from cs224d.data_utils import StanfordSentiment
 from word2vec import load_saved_params, sgd
 from sentiment import softmax_regression, softmax_wrapper, precision, get_sentence_feature
 
+def save_data(words, labels, pred, filename):
 
+    with open(filename, 'w') as outfile:
+        outfile.write("sentence\tlabels\tpred\n")
+        for i in range(len(words)):
+            outfile.write("%s\t%s\t%s\n" % (' '.join(words[i]), labels[i], pred[i]))
+     
 def get_data(dataset, word_vectors, dtype='train'):
 
     tokens = dataset.tokens()
@@ -19,21 +25,23 @@ def get_data(dataset, word_vectors, dtype='train'):
     if dtype == 'train':
         data = dataset.getTrainSentences()
     elif dtype == 'dev':
-        data = dataset.getTrainSentences()
+        data = dataset.getDevSentences()
     elif dtype == 'test':
         data = dataset.getTestSentences()
     else:
         raise ValueError('Wrong dataset type requested')
 
     num_train = len(data)
-    train_features = np.zeros((num_train, dim_vectors))   # N x D
-    train_labels = np.zeros((num_train,), dtype=np.int32) # N x 1 
+    features = np.zeros((num_train, dim_vectors))   # N x D
+    labels = np.zeros((num_train,), dtype=np.int32) # N x 1 
 
+    words = []
     for i in xrange(num_train):
-        words, train_labels[i] = data[i]
-        train_features[i, :] = get_sentence_feature(tokens, word_vectors, words)
+        sent_words, labels[i] = data[i]
+        words.append(sent_words)
+        features[i, :] = get_sentence_feature(tokens, word_vectors, sent_words)
 
-    return train_features, train_labels 
+    return features, labels, words
 
 def read_vectors(infile):
 
@@ -65,7 +73,7 @@ if __name__ == '__main__':
     dim_vectors = word_vectors.shape[1]
 
     dataset = StanfordSentiment()
-    train_features, train_labels = get_data(dataset, word_vectors, dtype='train')
+    train_features, train_labels, words = get_data(dataset, word_vectors, dtype='train')
 
     weights = np.random.randn(dim_vectors, 5)  # D x NUM_LABELS array
     # We will do batch optimization
@@ -80,17 +88,24 @@ if __name__ == '__main__':
     weights = sgd(lambda weights: softmax_wrapper(train_features, train_labels, weights, regularization),
         weights, params, postprocessing=None, use_saved=False, print_every=500, save_params_every=1000)
 
+    _, _, pred = softmax_regression(train_features, train_labels, weights)
+    print "Train precision (%%): %f" % precision(train_labels, pred)
+    save_data(words, train_labels, pred, 'data_train.txt')
+     
     print "Testing on dev dataset"
-    dev_features, dev_labels = get_data(dataset, word_vectors, dtype='dev')
+    dev_features, dev_labels, dev_words = get_data(dataset, word_vectors, dtype='dev')
+
     print dev_features.shape, weights.shape
-      
     _, _, pred = softmax_regression(dev_features, dev_labels, weights)
     print "Dev precision (%%): %f" % precision(dev_labels, pred)
+    save_data(dev_words, dev_labels, pred, 'data_dev.txt')
 
-    test_features, test_labels = get_data(dataset, word_vectors, dtype='test')
-       
+
+    test_features, test_labels, test_words = get_data(dataset, word_vectors, dtype='test')
     _, _, pred = softmax_regression(test_features, test_labels, weights)
     print "=== For autograder ===\nTest precision (%%): %f" % precision(test_labels, pred)
+    save_data(test_words, test_labels, pred, 'data_test.txt')
+
 
 
 # #### Extra Credit
