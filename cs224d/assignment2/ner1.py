@@ -49,6 +49,7 @@ import data_utils.ner as ner
 # Load the starter word vectors
 wv, word_to_num, num_to_word = ner.load_wv('data/ner/vocab.txt',
                                            'data/ner/wordVectors.txt')
+# wv - matrix with word vectors N x D
 tagnames = ["O", "LOC", "MISC", "ORG", "PER"]
 num_to_tag = dict(enumerate(tagnames))
 tag_to_num = du.invert_dict(num_to_tag)
@@ -57,7 +58,7 @@ tag_to_num = du.invert_dict(num_to_tag)
 windowsize = 3
 
 # Load the training set
-docs = du.load_dataset('data/ner/train')
+docs = du.load_dataset('data/ner/train') # [[sentence1], [sentence2], ...]
 X_train, y_train = du.docs_to_windows(docs, word_to_num, tag_to_num,
                                       wsize=windowsize)
 
